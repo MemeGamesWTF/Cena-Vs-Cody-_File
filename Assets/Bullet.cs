@@ -17,7 +17,7 @@ public class Bullet : MonoBehaviour
 
             GameManager.Instance.AddScore();
             GameManager.Instance.Tap.Play();
-            GameManager.Instance.IncreaseSliderValue(0.35f);
+            GameManager.Instance.IncreaseSliderValue(0.3f);
             Vector2 spawnPos = collision.ClosestPoint(transform.position);
             GameManager.Instance.SpawnSlimeAt(spawnPos);
             Destroy(gameObject);
