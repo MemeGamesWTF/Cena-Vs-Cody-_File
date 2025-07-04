@@ -1,6 +1,7 @@
 using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class BasePlayer : MonoBehaviour
 {
@@ -10,6 +11,8 @@ public class BasePlayer : MonoBehaviour
     public GameObject[] bullets;
     public float Bulletspeed = 5f;
 
+    public AudioSource[] taps;
+
     void Update()
     {
         if (!GameManager.Instance.GameState)
@@ -18,6 +21,7 @@ public class BasePlayer : MonoBehaviour
         // Mouse input
         if (Input.GetMouseButtonDown(0))
         {
+            PlayRandomTap();
             RotateToMousePosition();
             if (Random.value > 0.4f) // 70% chance to spawn
             {
@@ -31,6 +35,7 @@ public class BasePlayer : MonoBehaviour
             Touch touch = Input.GetTouch(0);
             if (touch.phase == TouchPhase.Began)
             {
+                PlayRandomTap();
                 RotateToTouchPosition(touch.position);
                 if (Random.value > 0.4f) // 70% chance to spawn
                 {
@@ -91,6 +96,13 @@ public class BasePlayer : MonoBehaviour
             }
             yield return null;
         }
+    }
+
+    private void PlayRandomTap()
+    {
+        if (taps == null || taps.Length == 0) return;
+        int idx = Random.Range(0, taps.Length);
+        taps[idx].Play();
     }
 
     public void GameOver()

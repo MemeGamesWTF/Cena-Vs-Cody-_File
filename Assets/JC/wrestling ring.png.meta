@@ -160,7 +160,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      wrestling ring_0: -1757590939680150634
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

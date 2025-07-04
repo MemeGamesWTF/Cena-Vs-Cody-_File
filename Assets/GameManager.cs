@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SocialPlatforms.Impl;
 using UnityEngine.UI;
+using static CartoonFX.CFXR_Effect;
 using static UnityEngine.GraphicsBuffer;
 using static UnityEngine.ParticleSystem;
 
@@ -25,9 +26,9 @@ public class GameManager : MonoBehaviour
 
     private ScoreObj Score;
 
-    public Text TimerText;  // Assign this in the Unity Inspector
-    private float timer = 10f; // Timer starts at 60 seconds
-    private bool isTimerRunning = false;
+/*    public Text TimerText;  // Assign this in the Unity Inspector
+    private float timer = 60f; // Timer starts at 60 seconds
+    private bool isTimerRunning = false;*/
 
     public Slider progressBar;
 
@@ -70,7 +71,7 @@ public class GameManager : MonoBehaviour
 
     private Vector3 targetPosition;
 
-    [SerializeField] private List<GameObject> Bears;
+   // [SerializeField] private List<GameObject> Bears;
     private int currentBearIndex = 0;
     private float targetY = -0.43f;
     [SerializeField] private float waitTimeBeforeReturn = 2.0f;
@@ -78,6 +79,10 @@ public class GameManager : MonoBehaviour
 
     public AudioSource UISound;
     public AudioSource Tap;
+    public GameObject intro;
+    public ParticleSystem tapParticlePrefab;
+    public ParticleSystem WinParticlePrefab;
+
 
     [DllImport("__Internal")]
     private static extern void SendScore(int score, int game);
@@ -101,7 +106,7 @@ public class GameManager : MonoBehaviour
         InfoScreen.SetActive(true);
         enemyInitialPosition = Enemy.transform.position;
 
-        StartCoroutine(MoveBear(Bears[currentBearIndex]));
+       // StartCoroutine(MoveBear(Bears[currentBearIndex]));
 
     }
 
@@ -116,7 +121,7 @@ public class GameManager : MonoBehaviour
         }
        
 
-        if (progressBar.value == 0)
+       if (progressBar.value == 0)
         {
             GameOverOtherScreen .SetActive(true);
             GameOver();
@@ -153,6 +158,19 @@ public class GameManager : MonoBehaviour
             }
         }
 
+       /* if (isTimerRunning)
+        {
+            timer -= Time.deltaTime;
+            if (timer <= 0f)
+            {
+               // CameraShake.IsShaking = false;
+                GameState = false;
+                timer = 0f;
+                isTimerRunning = false;
+                GameOver();
+            }
+            UpdateTimerUI();
+        }*/
 
 
         if (Time.time - lastTapTime > tapDecayDelay)
@@ -161,7 +179,7 @@ public class GameManager : MonoBehaviour
             
         }
 
-        /*if (Time.time - lastTapTime > tapDecayDelay)
+        if (Time.time - lastTapTime > tapDecayDelay)
         {
             scoreDecreaseTimer += Time.deltaTime;
             if (scoreDecreaseTimer >= scoreDecreaseInterval)
@@ -169,7 +187,7 @@ public class GameManager : MonoBehaviour
                 SubtractScore(scoreDecreaseAmount);
                 scoreDecreaseTimer = 0f;
             }
-        }*/
+        }
         //GAME LOGIC
 
     }
@@ -221,8 +239,17 @@ public class GameManager : MonoBehaviour
 
     public void SpawnSlimeAt(Vector2 position)
     {
+        // 1) Play tap particle at that spot
+        if (tapParticlePrefab != null)
+        {
+            // Instantiate the particle system, it'll auto-play if set up that way
+            ParticleSystem ps = Instantiate(tapParticlePrefab, position, Quaternion.identity);
+            ps.Play();
+        }
+
+        // 2) Spawn the slime
         GameObject slime = Instantiate(slimePrefab, position, Quaternion.identity);
-        StartCoroutine(DeactivateAfterDelay(slime, 0.1f)); // Deactivate after 0.5 seconds
+        StartCoroutine(DeactivateAfterDelay(slime, 0.1f)); // or however long you need
     }
 
     private IEnumerator DeactivateAfterDelay(GameObject obj, float delay)
@@ -231,93 +258,75 @@ public class GameManager : MonoBehaviour
         Destroy(obj); // Use Destroy if instantiating, or obj.SetActive(false) if reusing
     }
 
-    private IEnumerator MoveBear(GameObject bear)
+
+
+
+
+    /* private GameObject GetRandomBear()
+     {
+         int randomIndex = Random.Range(0, Bears.Count);
+         return Bears[randomIndex];
+     }*/
+
+    public void IncreaseSliderValue(float baseIncrement)
     {
+        if (progressBar == null) return;
 
+        // compute how full the bar is, 0 to 1
+        float fillRatio = progressBar.value / progressBar.maxValue;
 
-        Vector3 startPosition = new Vector3(bear.transform.position.x, -3.19f, bear.transform.position.z);
-        bear.transform.position = startPosition;
-        targetPosition = new Vector3(bear.transform.position.x, targetY, bear.transform.position.z);
-
-        Vector3 halfwayPosition = Vector3.Lerp(startPosition, targetPosition, 0.5f);
-
-        while (bear.transform.position != targetPosition)
+        // choose strength multiplier based on the fillRatio buckets
+        float strength;
+        if (fillRatio < 0.3f)
         {
-
-            bear.transform.position = Vector3.MoveTowards(bear.transform.position, targetPosition, speed * Time.deltaTime);
-
-            if (bear.transform.position.y >= halfwayPosition.y)
-            {
-                bear.GetComponent<Collider2D>().enabled = true;
-            }
-            yield return null;
+            strength = 0.8f;        // 0–30%
+        }
+        else if (fillRatio < 0.7f)
+        {
+            strength = 0.5f;      // 30–70%
+        }
+        else
+        {
+            strength = 0.3f;      // 70–100%
         }
 
+        // scale your increment
+        float scaledIncrement = baseIncrement * strength;
 
-        yield return new WaitForSeconds(waitTimeBeforeReturn);
+        // store previous for threshold checks
+        float previousValue = progressBar.value;
 
-        // Move the bear back down
-        while (bear.transform.position != startPosition)
+        // apply and clamp
+        progressBar.value = Mathf.Clamp(progressBar.value + scaledIncrement, 0f, progressBar.maxValue);
+
+        // Optional: threshold checks (25%, 50%, 75%) here
+        float quarterWay = progressBar.maxValue * 0.25f;
+        float halfway = progressBar.maxValue * 0.5f;
+        float threeQuarterWay = progressBar.maxValue * 0.75f;
+
+        if (previousValue < quarterWay && progressBar.value >= quarterWay)
         {
-            bear.transform.position = Vector3.MoveTowards(bear.transform.position, startPosition, speed * Time.deltaTime);
-            bear.GetComponent<Collider2D>().enabled = false;
-            yield return null;
+            // reached 25%
+        }
+        if (previousValue < halfway && progressBar.value >= halfway)
+        {
+            // reached 50%
+        }
+        if (previousValue < threeQuarterWay && progressBar.value >= threeQuarterWay)
+        {
+            // reached 75%
         }
 
-        yield return new WaitForSeconds(5);
-
-        StartCoroutine(MoveBear(GetRandomBear()));
-    }
-
-
-
-    private GameObject GetRandomBear()
-    {
-        int randomIndex = Random.Range(0, Bears.Count);
-        return Bears[randomIndex];
-    }
-
-    public void IncreaseSliderValue(float increment)
-    {
-        if (progressBar != null)
+        // win condition
+        if (progressBar.value >= progressBar.maxValue)
         {
-            float previousValue = progressBar.value;
-            progressBar.value += increment; // Increase slider value
-            progressBar.value = Mathf.Clamp(progressBar.value, 0, progressBar.maxValue);
-         
 
-            float quarterWay = progressBar.maxValue * 0.25f;
-            float halfway = progressBar.maxValue * 0.5f;
-            float threeQuarterWay = progressBar.maxValue * 0.75f;
-           
-
-            if (previousValue < quarterWay && progressBar.value >= quarterWay)
-            {
-              
-                //Debug.Log("Slider reached 25% (Quarter Way)");
-            }
-            if (previousValue < halfway && progressBar.value >= halfway)
-            {
-               
-               
-                //  Debug.Log("Slider reached 50% (Halfway)");
-            }
-            if (previousValue < threeQuarterWay && progressBar.value >= threeQuarterWay)
-            {
-               // activePeople();
-                //  Debug.Log("Slider reached 75% (Three-Quarter Way)");
-            }
-
-            if (progressBar.value >= progressBar.maxValue)
-            {
-              //  PlayerAudioSource[1].Play();
-                GameWin();
-                
-            }
-
+            GameWin();
         }
+
         lastTapTime = Time.time;
     }
+
     private void DecreaseSliderValue()
     {
         float previousValue = progressBar.value;
@@ -358,28 +367,28 @@ public class GameManager : MonoBehaviour
         }
     }
    
-    private void UpdateTimerUI()
+    /*private void UpdateTimerUI()
     {
         int minutes = Mathf.FloorToInt(timer / 10);
         int seconds = Mathf.FloorToInt(timer % 10);
         TimerText.text = $"{minutes:00}:{seconds:00}";
-    }
+    }*/
     public void GameWin()
     {
         particle.Play();
         GameState = false;
         GameWinScreen.SetActive(true);
         Debug.Log(currentScore);
-        SendScore(currentScore, 124);
+        SendScore(currentScore, 155);
     }
 
     public void GameOver()
     {
-       
+      
         GameState = false;
         Debug.Log(currentScore);
         GameOverScreen.SetActive(true);
-        SendScore(currentScore, 124);
+        SendScore(currentScore, 155);
         
     }
     public void AddScore()
@@ -443,23 +452,24 @@ public class GameManager : MonoBehaviour
 
     public void GameResetScreen()
     {
+        intro.SetActive(true);
         GameOverOtherScreen.SetActive(false);
         isPlaying = false;
-        timer = 10f;
+      //  timer = 20f;
         GameState = true;
-        isTimerRunning = true;
+      //  isTimerRunning = true;
         ScoreText.text = "0";
         Score.score = 0;
         currentScore = 0;
       //  deactivePeople();
-        UpdateTimerUI();
+      //  UpdateTimerUI();
         Playeranimators.SetBool("isEnd", false);
         InfoScreen.SetActive(false);
         GameOverScreen.SetActive(false);
         GameWinScreen.SetActive(false);
         GameState = true;
         if (progressBar != null)
-            progressBar.value = 2;
+            progressBar.value = 1;
 
         //Player.Reset();
     }
